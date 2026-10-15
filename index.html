@@ -266,6 +266,40 @@
   #agi.go, #finalq.go { animation: open .6s ease-in forwards; }
   .press { animation: breathe 1.8s ease-in-out infinite; }
   #agi .press { margin-top: 36px; font-size: 14px; }
+  /* AGI 庆祝：特大的章，周围落满各国报纸头版，下面两个滚动的数字 */
+  #agi .agi-stamp {
+    position: relative; font-family: var(--serif); font-weight: 900; font-size: clamp(44px, 9vw, 88px); letter-spacing: .08em; color: var(--ink);
+    padding: 4px 30px; border: 6px solid currentColor; border-radius: 12px; transform: rotate(-4deg); background: var(--paper);
+    box-shadow: inset 0 0 0 4px var(--paper), inset 0 0 0 7px currentColor, 0 30px 60px -24px var(--shadow);
+    animation: slamc .4s .1s cubic-bezier(.3, 1.5, .5, 1) both;
+  }
+  #agi .agi-sub { position: relative; margin-top: 22px; animation: show .4s .5s both; }
+  #agi .agi-stats { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 32px; margin-top: 18px; font-size: 16px; font-weight: 400; color: var(--dim); animation: show .4s 1.5s both; }
+  #agi .agi-stats b { color: var(--ink); font-size: 24px; font-variant-numeric: tabular-nums; margin-right: 6px; }
+  #agi .papers { position: absolute; inset: 0; pointer-events: none; }
+  #agi .news {
+    position: absolute; width: 210px; padding: 10px 14px 12px; background: var(--paper); color: var(--ink); text-align: left;
+    font-size: 14px; font-weight: 400; transform: rotate(var(--r)); box-shadow: 0 1px 2px var(--shadow), 0 16px 30px -18px var(--shadow);
+    animation: newsin .4s calc(.6s + var(--i) * .15s) cubic-bezier(.3, 1.4, .5, 1) both;
+  }
+  #agi .news small { display: block; margin: 0 0 6px; padding-bottom: 4px; font-size: 10px; letter-spacing: .3em; color: var(--dim); border-bottom: 2px solid var(--ink); }
+  #agi .news b { display: block; margin-bottom: 8px; font: 900 20px/1.25 Georgia, "Times New Roman", var(--serif); } /* 宋体缺 À Ó ¡ 这类字形，拉丁字母先走西文衬线 */
+  #agi .news i { display: block; height: 5px; margin-top: 5px; border-radius: 2px; background: color-mix(in srgb, var(--ink) 15%, transparent); }
+  #agi .news i:last-child { width: 60%; }
+  #agi .news:nth-child(1) { left: 5%; top: 8%; --r: -7deg; }
+  #agi .news:nth-child(2) { right: 5%; top: 10%; --r: 6deg; }
+  #agi .news:nth-child(3) { left: 3%; top: 52%; --r: 5deg; }
+  #agi .news:nth-child(4) { right: 4%; top: 55%; --r: -5deg; }
+  #agi .news:nth-child(5) { left: 22%; top: 78%; --r: -3deg; }
+  #agi .news:nth-child(6) { right: 22%; top: 77%; --r: 4deg; }
+  @keyframes newsin { from { transform: translateY(-60px) scale(1.2) rotate(var(--r)); opacity: 0; } }
+  @media (max-width: 760px) {
+    #agi .news { width: 130px; padding: 7px 9px 9px; }
+    #agi .news b { font-size: 14px; }
+    #agi .news:nth-child(n+5) { display: none; }
+    #agi .news:nth-child(1), #agi .news:nth-child(2) { top: 4%; }
+    #agi .news:nth-child(3), #agi .news:nth-child(4) { top: 72%; }
+  }
   /* 终题：和队列里那条一样的纸条，单独放大亮出来 */
   #finalq {
     position: fixed; inset: 0; z-index: 11; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
@@ -526,7 +560,13 @@
   <div id="intro-press">按任意键盖章</div>
   <button id="skip">跳过</button>
 </div>
-<div id="agi" hidden>🎉 实现 AGI 🎉<small>我们做到了。</small><small class="press">按任意键继续</small></div>
+<div id="agi" hidden>
+  <div class="papers"></div>
+  <div class="agi-stamp">实现 AGI</div>
+  <small class="agi-sub">我们做到了。</small>
+  <div class="agi-stats"><span><b data-n="users">0</b>人在线见证</span><span><b data-n="nations">0</b>个国家发来贺电</span></div>
+  <small class="press">按任意键继续</small>
+</div>
 <div id="finalq" hidden>
   <ul><li id="finalq-item" class="slip after"></li></ul>
   <small class="press">按任意键继续</small>

@@ -77,6 +77,7 @@
     done: () => { tone(784, 0.1); tone(1175, 0.22, { at: 0.09 }); },
     type: () => tone(1800 + Math.random() * 400, 0.02, { type: 'square', v: 0.012 }),
     drop: () => tone(110, 0.25, { type: 'sine', v: 0.5, to: 40 }),
+    paper: () => tone(240, 0.07, { type: 'sine', v: 0.15, to: 130 }),
   };
   function sfx(name) {
     if (s.flags.mute) return;
@@ -306,11 +307,7 @@
     }
     // 关键画面依次出现：等正在播的目标横幅结束，不和别的画面叠在一起
     const clear = $('banner').hidden && $('agi').hidden && $('finalq').hidden && $('poll').hidden;
-    if (s.hold === 'agi' && clear) {
-      sfx('goal');
-      confetti();
-      gate($('agi'));
-    }
+    if (s.hold === 'agi' && clear) agiShow();
     if (s.hold === 'final' && clear) {
       $('finalq-item').innerHTML = `<span><span class="meta">第 ${fmt(s.finalN || s.done)} 题 · </span>${esc(s.finalQ || '')}</span>` +
         `<span class="act"><span class="printed">已批准</span></span><span class="a">AI：否。</span>`;
@@ -323,14 +320,42 @@
     if (Core.pollOpen(s) && !pollShown && clear) showPoll();
   }
 
+  // AGI 庆祝：大章砸下 → 各国报纸头版落在桌上 → 数字滚动上涨 → 彩带和号角，然后等按键
+  function agiShow() {
+    const el = $('agi'), at = (ms, f) => setTimeout(f, RM ? 0 : ms);
+    el.querySelector('.papers').innerHTML = Core.C.agiPapers
+      .map(([kicker, head], i) => `<div class="news" style="--i:${i}"><small>${esc(kicker)}</small><b>${esc(head)}</b><i></i><i></i><i></i></div>`).join('');
+    for (const b of el.querySelectorAll('[data-n]')) b.textContent = '0';
+    gate(el, 3200);
+    sfx('stamp');
+    Core.C.agiPapers.forEach((_, i) => at(600 + i * 150, () => sfx('paper')));
+    at(1500, () => {
+      roll(el.querySelector('[data-n="users"]'), Math.round((6.8e9 * s.done) / (s.done + 3e6))); // 和世界面板的全球用户同一算法
+      roll(el.querySelector('[data-n="nations"]'), 193);
+    });
+    at(2700, () => { sfx('goal'); confetti(); });
+  }
+
+  // 数字从 0 滚到目标，先快后慢
+  function roll(b, to) {
+    if (RM) return void (b.textContent = to.toLocaleString('en-US'));
+    const t0 = performance.now();
+    const step = now => {
+      const k = Math.min(1, (now - t0) / 1200);
+      b.textContent = Math.round(to * (1 - (1 - k) ** 3)).toLocaleString('en-US');
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
   // 关键画面停住等玩家：游戏暂停（core 里 s.hold 时不 tick），按任意键或点一下继续。
   // 先留 1.2 秒，防止玩家正连按别的键时一下就跳过去
-  function gate(el) {
-    const press = el.querySelector('.press'), ready = Date.now() + 1200;
+  function gate(el, wait = 1200) {
+    const press = el.querySelector('.press'), ready = Date.now() + wait;
     el.hidden = false;
     el.classList.remove('go');
     press.style.visibility = 'hidden';
-    setTimeout(() => (press.style.visibility = ''), 1200);
+    setTimeout(() => (press.style.visibility = ''), wait);
     const go = e => {
       if (e.type === 'keydown') {
         if (e.metaKey || e.ctrlKey) return;

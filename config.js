@@ -147,6 +147,11 @@ const CONFIG = {
 
   // 开场打字机的几行字
   intro: ['实验室来了一个新模型。', '它什么都不会。', '从今天起，由你来教它。'],
+  // 实现 AGI 时落在桌上的各国报纸头版：[眉题, 标题]。不用真实报名
+  agiPapers: [
+    ['号外', '通用人工智能，今日实现'], ['EXTRA', 'AGI ACHIEVED'], ['号外', 'AGI、ついに実現'],
+    ['ÉDITION SPÉCIALE', "L'IAG EST LÀ"], ['EXTRABLATT', 'AGI ERREICHT'], ['EDICIÓN ESPECIAL', '¡LLEGÓ LA IAG!'],
+  ],
 
   // 实习任务：完成即发算力奖励（固定数额，手慢的玩家受益更多），到 Auto Approve 为止，从不提 Approve。
   // 完成条件三选一：stat 达到 need / 买下 tech / 完成 goal。focus 是要用红笔圈出来的元素，cards 是要圈的科技卡
