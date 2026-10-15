@@ -30,6 +30,7 @@ function run(seed, idle, maxT = 3600, P = PROFILES.skilled, choice = 'answer') {
   let busy = 0, nextShop = 0;
   while (s.t < maxT && !s.ended) {
     if (Core.pollOpen(s)) Core.vote(s, choice);
+    if (s.hold) Core.release(s); // 机器人立刻按键继续
     Core.tick(s, dt);
     const m = Core.mods(s);
     if (idle && s.owned.Z) continue;
@@ -65,15 +66,15 @@ function run(seed, idle, maxT = 3600, P = PROFILES.skilled, choice = 'answer') {
 }
 
 // 熟练玩家的目标时间（秒），校准时用
-const targets = {A1: 4, B1: 11, B2: 23, A2: 36, C1: 46, B3: 56, D1: 67, E1: 90, D3: 105, C2: 118, A3: 129, A4: 136, B4: 145, E2: 150, E3: 170, C3: 196, E4: 210, G1: 222, E5: 240, B5: 258, E6: 281, C4: 327, E7: 349, G2: 376, D4: 389, D5: 408, Z: 420,
-  // Approve（约 7:05）之后约 8 分钟到结局：黄金时代 → AGI（R2:15）→ 公投（R3:00）→ 三幕，间隔越来越短
-  B6: 440, C5: 445, F1: 470, G3: 485, D6: 500, F2: 515, B7: 525, C6: 535, F3: 545, G4: 560, G5: 580,
-  B8: 610, D7: 630, F4: 650, F6: 655, F5: 665, F7: 685, B9: 690, F8: 700,
-  answer1: 620, answer2: 640, answer3: 660, answer4: 675, answer5: 705, answer6: 735, answer7: 775, answer8: 820, answer9: 865,
-  dyson1: 620, dyson2: 640, dyson3: 660, dyson4: 675, dyson5: 705,
-  stars1: 620, stars2: 640, stars3: 660, stars4: 675, stars5: 705};
+const targets = {A1: 3, B1: 8, B2: 16, A2: 25, C1: 32, B3: 39, D1: 46, E1: 62, D3: 72, C2: 81, A3: 89, A4: 94, B4: 100, E2: 103, E3: 117, C3: 135, E4: 145, G1: 153, E5: 166, B5: 178, E6: 194, C4: 226, E7: 241, G2: 259, D4: 268, D5: 281, Z: 290,
+  // Approve（约 4:50）之后约 8 分钟到结局：黄金时代 → AGI（R2:15）→ 公投（R3:00）→ 三幕，间隔越来越短
+  B6: 310, C5: 315, F1: 340, G3: 355, D6: 370, F2: 385, B7: 395, C6: 405, F3: 415, G4: 430, G5: 450,
+  B8: 480, D7: 500, F4: 520, F6: 525, F5: 535, F7: 555, B9: 560, F8: 570,
+  answer1: 490, answer2: 510, answer3: 530, answer4: 545, answer5: 575, answer6: 605, answer7: 645, answer8: 690, answer9: 735,
+  dyson1: 490, dyson2: 510, dyson3: 530, dyson4: 545, dyson5: 575,
+  stars1: 490, stars2: 510, stars3: 530, stars4: 545, stars5: 575};
 // 拆解结局：损耗反超、拆空（游戏秒）
-const doomTargets = { cross: 740, halt: 845 };
+const doomTargets = { cross: 610, halt: 715 };
 module.exports = { run, PROFILES, targets, doomTargets };
 if (require.main !== module) return;
 
@@ -121,18 +122,18 @@ for (const fu of C.futures) {
   console.log(`${fu.name}：` + timeline(fu).map(([n, t]) => `${n} ${f(t - Z)}`).join(' · ') + `　新手结局 ${f(med(ends[fu.id].novice.end))}`);
 }
 
-assert(at('E1') <= 105, 'Tab 补全应在 1:45 内');
-assert(at('E1', 'novice') <= 210, '新手 3:30 内进 Tab 补全');
-assert(at('E5') <= 270, 'Auto Approve 应在 4:30 内');
-assert(at('E5', 'novice') <= 540, '新手 9 分钟内进 Auto Approve');
-assert(Z >= 6 * 60 && Z <= 8 * 60, 'Approve 应在 7 分钟左右');
+assert(at('E1') <= 75, 'Tab 补全应在 1:15 内');
+assert(at('E1', 'novice') <= 150, '新手 2:30 内进 Tab 补全');
+assert(at('E5') <= 190, 'Auto Approve 应在 3:10 内');
+assert(at('E5', 'novice') <= 375, '新手 6:15 内进 Auto Approve');
+assert(Z >= 250 && Z <= 330, 'Approve 应在 4:50 左右');
 assert(at('G4') - Z >= 105 && at('G4') - Z <= 165, 'Approve 后约 2:15 实现 AGI');
 for (const fu of C.futures) {
   const e = ends[fu.id], m = (x, k = 'active') => med(e[k][x]);
   const rel = m('end') - m('Z');
   assert(rel >= 6.5 * 60 && rel <= 8.5 * 60, `${fu.name}：Approve 后约 8 分钟结局，实际 ${f(rel)}`);
   assert(m('end', 'idle') - m('Z', 'idle') <= 9 * 60, `${fu.name}：挂机也应在 9 分钟内结局`);
-  assert(m('end', 'novice') <= 25 * 60, `${fu.name}：新手 25 分钟内看到结局`);
+  assert(m('end', 'novice') <= 18 * 60, `${fu.name}：新手 18 分钟内看到结局`);
   // 顺序：公投先于接入电网（终题要用公投目标）；投票后相邻事件间隔不超过 75 秒
   assert(m('vote') < m('gridAt'), `${fu.name}：公投应先于接入电网`);
   const ts = timeline(fu).map(x => x[1]);

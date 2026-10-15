@@ -179,7 +179,7 @@ const Core = (() => {
     const v = (t.base + m.manualBonus) * m.value;
     let g = 0;
     if (ok) {
-      gain(s, (g = v * comboMult(s, m)));
+      gain(s, (g = v * comboMult(s, m) * C.manualMul));
       s.combo++; s.done++; s.manual++;
       if (t.data) s.data += t.data;
     } else {
@@ -201,7 +201,7 @@ const Core = (() => {
   function settle(s, i, approve, human, m = mods(s)) {
     const it = s.queue.splice(i, 1)[0];
     const v = itemValue(it, m);
-    if (approve && it.ok) { gain(s, v); s.done++; }
+    if (approve && it.ok) { gain(s, human ? v * C.manualMul : v); s.done++; }
     else if (approve) {
       s.compute = Math.max(0, s.compute - v); s.accidents++;
       if (s.t - s.lastComplaint >= C.complaintGapSec) { s.lastComplaint = s.t; log(s, complaint(it)); }
@@ -265,7 +265,9 @@ const Core = (() => {
     if (id === 'S4') s.paused = false;
     if (id === 'S6') {
       s.finalQ = C.msg.finalQ((future(s) || C.futures[0]).name);
-      pushFeed(s, { n: Math.floor(s.done), text: s.finalQ, ai: '否。', special: 1 });
+      s.finalN = Math.floor(s.done);
+      pushFeed(s, { n: s.finalN, text: s.finalQ, ai: '否。', special: 1 });
+      s.hold = 'final'; // 终题单独亮出来，等玩家按键
     }
   }
 
@@ -296,6 +298,7 @@ const Core = (() => {
     s.compute -= g.cost;
     s.goal++;
     s.goalAt[g.id] = s.lastGoalAt = s.t;
+    if (g.id === 'G4') s.hold = 'agi'; // 庆祝画面等玩家按键才继续
     if (g.grid) s.gridAt = s.t;
     if (g.dig) s.digAt = s.t;
     if (g.msg || C.msg[g.id]) log(s, g.msg || C.msg[g.id]);
@@ -439,7 +442,7 @@ const Core = (() => {
 
   // ---------- 主循环 ----------
   function tick(s, dt) {
-    if (s.ended || s.paused || pollOpen(s)) return; // 公投期间暂停，等玩家投票
+    if (s.ended || s.paused || pollOpen(s) || s.hold) return; // 公投、AGI、终题这几处停下来等玩家
     s.t += dt;
     let m = mods(s);
     const c0 = s.compute, d0 = s.done;
@@ -480,9 +483,9 @@ const Core = (() => {
     if (s.data > 0) s.flags.data = 1;
   }
 
-  // 离线：购买 Auto Approve 后才生效，按离开前的速率结算，Approve 后也不推进目标和节点
+  // 离线：购买 Auto Approve 后才生效，按离开前的速率结算。Approve 之后整段是剧情演出，离开就暂停，不补算
   function offline(s, secs) {
-    if (s.ended || s.paused || !s.owned.E5 || secs < 1) return 0;
+    if (s.ended || s.paused || !s.owned.E5 || s.owned.Z || secs < 1) return 0;
     secs = Math.min(secs, C.offlineMaxSec);
     const n = s.rateDone * secs;
     s.done += n;
@@ -526,7 +529,7 @@ const Core = (() => {
 
   return Object.assign(api, {
     create, tick, offline, mods, answer, passCaptcha, approve, reject, available, buy, canBuy, cost, invest, goalName,
-    future, pollOpen, vote, doomOn, bodies, progress, goals,
+    future, pollOpen, vote, doomOn, bodies, progress, goals, release: s => (s.hold = null),
     world, comboMult, showAns, same, has, avgBase, fmt, fmtTime, fmtCost, GEN, gen, wrong, GI,
   });
 })();

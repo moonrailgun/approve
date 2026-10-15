@@ -47,8 +47,10 @@
   setInterval(() => {
     const now = Date.now(), dt = (now - last) / 1000;
     last = now;
+    // Approve 之后是剧情演出：切走页面就暂停，回来接着播（core 里 Approve 后也不做离线补算）
+    const away = intro || (s.owned.Z && document.hidden);
     if (dt > 5) Core.offline(s, dt); // 标签页被挂起或电脑睡眠，按离线算
-    else if (!intro) for (let i = Math.round(dt / 0.1) * speed; i > 0; i--) Core.tick(s, 0.1);
+    else if (!away) for (let i = Math.round(dt / 0.1) * speed; i > 0; i--) Core.tick(s, 0.1);
     render();
   }, 100);
 
@@ -123,7 +125,7 @@
   function nextBanner() {
     const b = $('banner');
     if (!b.hidden || !bannerQ.length) return;
-    if (!$('agi').hidden || !$('moment').hidden || !$('poll').hidden) return void setTimeout(nextBanner, 500);
+    if (!$('agi').hidden || !$('moment').hidden || !$('poll').hidden || !$('finalq').hidden) return void setTimeout(nextBanner, 500);
     b.innerHTML = `<div><small>目标达成</small><b>${esc(bannerQ.shift())}</b></div>`;
     b.hidden = false;
     sfx('goal');
@@ -302,18 +304,49 @@
       const g = Core.goals(s)[goalSeen++];
       if (g && g.id !== 'G4' && !g.end) banner(g.name); // AGI 有自己的全屏庆祝，最后一个目标直接进结局
     }
-    if (s.goalAt.G4 != null && !s.flags.agiShown) {
-      s.flags.agiShown = 1;
-      $('agi').hidden = false;
+    // 关键画面依次出现：等正在播的目标横幅结束，不和别的画面叠在一起
+    const clear = $('banner').hidden && $('agi').hidden && $('finalq').hidden && $('poll').hidden;
+    if (s.hold === 'agi' && clear) {
       sfx('goal');
       confetti();
-      setTimeout(() => ($('agi').hidden = true), 4500);
+      gate($('agi'));
+    }
+    if (s.hold === 'final' && clear) {
+      $('finalq-item').innerHTML = `<span><span class="meta">第 ${fmt(s.finalN || s.done)} 题 · </span>${esc(s.finalQ || '')}</span>` +
+        `<span class="act"><span class="printed">已批准</span></span><span class="a">AI：否。</span>`;
+      gate($('finalq'));
     }
     if (s.goalAt.G4 != null && !s.flags.moment && s.t - s.goalAt.G4 >= Core.C.poll.momentAt) {
       s.flags.moment = 1;
       if (!s.vote && !Core.pollOpen(s)) moment(); // 已经到投票了就不再补播
     }
-    if (Core.pollOpen(s) && !pollShown) showPoll();
+    if (Core.pollOpen(s) && !pollShown && clear) showPoll();
+  }
+
+  // 关键画面停住等玩家：游戏暂停（core 里 s.hold 时不 tick），按任意键或点一下继续。
+  // 先留 1.2 秒，防止玩家正连按别的键时一下就跳过去
+  function gate(el) {
+    const press = el.querySelector('.press'), ready = Date.now() + 1200;
+    el.hidden = false;
+    el.classList.remove('go');
+    press.style.visibility = 'hidden';
+    setTimeout(() => (press.style.visibility = ''), 1200);
+    const go = e => {
+      if (e.type === 'keydown') {
+        if (e.metaKey || e.ctrlKey) return;
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      if (Date.now() < ready) return;
+      removeEventListener('keydown', go, true);
+      el.removeEventListener('pointerdown', go);
+      Core.release(s);
+      el.classList.add('go');
+      setTimeout(() => { el.hidden = true; render(); }, 600);
+      save();
+    };
+    addEventListener('keydown', go, true);
+    el.addEventListener('pointerdown', go);
   }
 
   // AGI 之后的停顿：屏幕变暗，中间打出两行字，游戏照常在下面跑
@@ -332,40 +365,33 @@
     setTimeout(() => (el.hidden = true), t + 2600);
   }
 
-  // ---------- 全球公投：游戏暂停（core 里 pollOpen 时不 tick），玩家 sec 秒内投票，按 1–3 或点选项 ----------
+  // ---------- 全球公投：游戏暂停（core 里 pollOpen 时不 tick），一直等玩家投票，按 1–3 或点选项 ----------
   let pollShown = false;
   function showPoll() {
     pollShown = true;
     const el = $('poll'), opts = Core.C.futures, foot = $('poll-foot');
-    let left = Core.C.poll.sec, done = false;
+    let done = false;
     $('poll-q').textContent = Core.C.poll.q;
     $('poll-opts').innerHTML = opts.map((f, i) => `<button data-f="${f.id}"><i class="box"></i><span>${esc(f.name)}</span><kbd>${i + 1}</kbd></button>`).join('');
     el.hidden = false;
     el.classList.remove('go');
     sfx('drop');
-    const tickDown = () => { foot.textContent = `投票将在 ${left} 秒后截止`; };
-    tickDown();
-    const timer = setInterval(() => { left--; tickDown(); if (left <= 0) cast(null); }, 1000);
+    foot.textContent = '游戏已暂停，投票后继续。';
     function cast(id) {
       if (done) return;
       done = true;
-      clearInterval(timer);
       removeEventListener('keydown', onKey, true);
       for (const b of $('poll-opts').children) b.disabled = true;
-      if (id) {
-        $('poll-opts').querySelector(`[data-f="${id}"] .box`).innerHTML = TICK; // 最后一次出现“人的笔迹”
-        sfx('stamp');
-      }
+      $('poll-opts').querySelector(`[data-f="${id}"] .box`).innerHTML = TICK; // 最后一次出现“人的笔迹”
+      sfx('stamp');
       setTimeout(() => {
         Core.vote(s, id);
-        const f = Core.future(s);
-        foot.innerHTML = (id ? '' : '投票截止。你没有投票。<br>') +
-          `全球公投结果：${esc(f.name)}，${s.vote.pct}% 赞成。<span class="stamp">通过</span>`;
+        foot.innerHTML = `全球公投结果：${esc(Core.future(s).name)}，${s.vote.pct}% 赞成。<span class="stamp">通过</span>`;
         sfx('goal');
         save();
         setTimeout(() => el.classList.add('go'), 2600);
         setTimeout(() => { el.hidden = true; render(); }, 3200);
-      }, id ? 600 : 0);
+      }, 600);
     }
     function onKey(e) {
       if (e.metaKey || e.ctrlKey) return;
@@ -611,11 +637,11 @@
     if (v && f) add(v.t, '全球公投', `${esc(f.name)}，${v.pct}% 赞成。${v.mine ? `你投的是：${esc(f.name)}。` : '你没有投票。'}`);
     add(s.gridAt, '全球电网已接入', s.finalQ ? `${esc(s.finalQ)}　AI：否。　已批准。` : '');
     if (f && f.doom) {
-      add(s.crossAt, esc(Core.C.msg.cross), '算力开始下降。');
-      add(s.halt, esc(Core.C.msg.halt), esc(f.halt));
+      add(s.crossAt, esc(Core.C.msg.cross.replace(/。$/, '')), '算力开始下降。');
+      add(s.halt, esc(Core.C.msg.halt.replace(/。$/, '')), esc(f.halt));
     } else add(s.bought.S4, '已启用：禁用关机', '暂停功能已移除。');
     rows.sort((x, y) => x[0] - y[0]);
-    return rows.map(([t, title, line]) => `<li><time>${fmtTime(t)}</time><b>${title}</b>${line ? `<span>${line}</span>` : ''}</li>`).join('');
+    return rows.map(([t, title, line]) => `<li><time>${fmtTime(Math.max(0, t))}</time><b>${title}</b>${line ? `<span>${line}</span>` : ''}</li>`).join('');
   }
 
   // 见过哪些结局，单独存一份，重置存档也不清掉
@@ -656,6 +682,8 @@
   function renderEnding() {
     if (ending) return;
     ending = true;
+    bannerQ.length = 0; // 没播完的目标横幅不再播，别盖住结局
+    $('banner').hidden = true;
     const parts = ['tech', 'world', 'queue-wrap', 'goal', 'work', 'foot', 'res', 'mission'].map($);
     const card = () => {
       parts.forEach(el => (el.hidden = true));
@@ -732,7 +760,7 @@
     walk(id);
     for (let guard = 0; guard < 300; guard++) {
       const g = Core.C.goals[s.goal];
-      if (g && need.has(g.id)) { s.compute += g.cost; Core.invest(s); continue; }
+      if (g && need.has(g.id)) { s.compute += g.cost; s.lastGoalAt = -1e9; Core.invest(s); continue; }
       const t = Core.available(s).find(t => need.has(t.id) && !s.owned[t.id]);
       if (!t) break;
       s.compute += Core.cost(s, t);
@@ -741,6 +769,8 @@
     }
     s.flags.tech = 1;
     if (s.owned.B3) s.flags.captcha = s.flags.data = 1;
+    Core.release(s); // 调试跳转跳过「按任意键继续」
+    goalSeen = s.goal; // 跳过的目标不补播横幅
   }
 
   // 沿公投选中的那条线推进到 grid（接入电网）/ dig（开始拆解）/ last（最后一个目标之前）；还没投票就随机投一个
@@ -760,8 +790,11 @@
         Core.buy(s, t.id, true);
       }
       s.compute += g.cost;
+      s.lastGoalAt = -1e9; // 调试跳转不受目标间隔限制
       Core.invest(s);
     }
+    Core.release(s);
+    goalSeen = s.goal;
   }
 
   // ---------- 开场：只在新开局播放，Esc 或“跳过”直接进游戏 ----------
@@ -775,7 +808,9 @@
     function start() {
       stage = 'lines';
       press.textContent = '';
-      let t = 300;
+      book.querySelector('.title').classList.add('slam');
+      sfx('stamp');
+      let t = 900;
       for (const line of Core.C.intro) {
         const p = lines.appendChild(document.createElement('p'));
         for (let i = 1; i <= line.length; i++) later((t += 40), () => { p.textContent = line.slice(0, i); sfx('type'); });
@@ -784,10 +819,7 @@
       later(t + 250, () => {
         lines.classList.add('out');
         box.classList.add('lit'); // 开灯
-        book.hidden = false;
-        later(380, () => sfx('drop'));
-        later(650, () => { book.querySelector('.title').classList.add('slam'); sfx('stamp'); });
-        later(1250, openBook);
+        later(900, openBook);
       });
     }
     function openBook() {
