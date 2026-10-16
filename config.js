@@ -157,14 +157,14 @@ const CONFIG = {
   // 完成条件三选一：stat 达到 need / 买下 tech / 完成 goal。focus 是要用红笔圈出来的元素，cards 是要圈的科技卡
   missions: [
     { text: '答对 10 道题', hint: '用键盘或小键盘输入答案，回车提交', stat: 'manual', need: 10, focus: '#prob .box', reward: 10 },
-    { text: '研究第一项科技', hint: '算力够了就能研究，点右边亮起来的卡片', any: 1, focus: '.card:not(:disabled)', reward: 20 },
+    { text: '研究第一项科技', hint: '算力够了就能研究，点一张亮起来的科技卡片', any: 1, focus: '.card:not(:disabled)', reward: 20 },
     { text: '学会九九乘法', hint: '研究「两位数加减」，再研究「九九乘法表」', tech: 'B2', cards: ['B1', 'B2'], reward: 40 },
     { text: '让模型看懂图片', hint: '研究「多模态识别」', tech: 'B3', cards: ['B3'], reward: 100 },
     { text: '让模型上线', hint: '九宫格题用数字键选格子，攒够数据研究「预训练」', tech: 'D1', cards: ['D1'], reward: 200 },
     { text: '解锁 Tab 补全', hint: '研究「SFT」，再研究「Tab 补全」', tech: 'E1', cards: ['D2', 'E1'], reward: 400 },
     { text: '让人类给模型打分', hint: '研究「RLHF」，模型会更准', tech: 'D3', cards: ['D3'], reward: 800 },
     { text: '让 AI 独立作答', hint: '研究「AI 直出」', tech: 'E2', cards: ['E2'], reward: 1500 },
-    { text: '审批 30 条 AI 答案', hint: '空格批准，X 驳回。AI 会犯错，看清再批', stat: 'approvals', need: 30, focus: '#queue .slip:first-child', reward: 3000 },
+    { text: '审批 30 条 AI 答案', hint: '批准或驳回每一条（空格 / X）。AI 会犯错，看清再批', stat: 'approvals', need: 30, focus: '#queue .slip:first-child', reward: 3000 },
     { text: '完成目标「通过图灵测试」', hint: '攒够算力，点「投入」', goal: 'G1', focus: '#invest', reward: 6000 },
     { text: '研究 Auto Approve', hint: '先研究「置信度高亮」，再研究 Auto Approve', tech: 'E5', cards: ['E4', 'E5'], reward: 12000 },
   ],

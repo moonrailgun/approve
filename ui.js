@@ -13,6 +13,11 @@
   const KEY_CELL = { 7: 0, 8: 1, 9: 2, 4: 3, 5: 4, 6: 5, 1: 6, 2: 7, 3: 8 };
   const CELL_KEY = Object.fromEntries(Object.entries(KEY_CELL).map(([k, v]) => [v, k]));
 
+  // 触屏设备没有键盘：「按任意键……」改成「点一下……」
+  if (matchMedia('(pointer: coarse)').matches) {
+    for (const el of document.querySelectorAll('.press, #intro-press')) el.textContent = el.textContent.replace('按任意键', '点一下');
+  }
+
   let s = load();
   let M = Core.mods(s);
   let typed = '', sel = new Set(), speed = 1, wiped = false, goalSeen = s.goal, score = null;
@@ -106,7 +111,9 @@
   function floatAt(el, text, cls = '', atLeft = false) {
     if (!el) return;
     const r = el.getBoundingClientRect();
-    spawn('float ' + cls, esc(text), atLeft ? r.left : r.right + 14, r.top, 900);
+    const f = spawn('float ' + cls, esc(text), atLeft ? r.left : r.right + 14, r.top, 900);
+    const over = f.getBoundingClientRect().right - (innerWidth - 8);
+    if (over > 0) f.style.left = parseFloat(f.style.left) - over + 'px'; // 手机上贴右边的飘字会被切掉，往回挪
   }
 
   // 审批：条目已经从队列里移除，复制一张纸条盖上章飞走
@@ -412,6 +419,7 @@
       setTimeout(() => {
         Core.vote(s, id);
         foot.innerHTML = `全球公投结果：${esc(Core.future(s).name)}，${s.vote.pct}% 赞成。<span class="stamp">通过</span>`;
+        el.scrollTop = el.scrollHeight; // 屏幕太矮时选票会超出，把结果滚出来
         sfx('goal');
         save();
         setTimeout(() => el.classList.add('go'), 2600);
@@ -514,7 +522,7 @@
     const q = it.type === 'code' ? `<code>${esc(it.text)}</code> 的输出` : esc(it.text);
     // 识图题按原题的 3×3 排列，框出 AI 选的格子（只表示 AI 的选择，不表示对错）
     const a = (it.grid
-      ? `<span class="mini">${it.grid.map((e, j) => `<i${it.ai.includes(j) ? ' class="on"' : ''}>${e}</i>`).join('')}</span>已选 ${it.ai.length} 格`
+      ? `<span class="mini">${it.grid.map((e, j) => `<i${it.ai.includes(j) ? ' class="on"' : ''}>${e}</i>`).join('')}</span><span style="white-space: nowrap">已选 ${it.ai.length} 格</span>`
       : esc(it.ai)) + (it.flat ? ' 好问题！' : '');
     const conf = M.conf && !after && it.c != null ? `<span class="${it.c < 0.8 ? 'low' : ''}">${Math.round(it.c * 100)}%</span>` : '';
     const act = after
